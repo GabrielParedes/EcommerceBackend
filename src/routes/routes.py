@@ -552,3 +552,107 @@ def update_compra(id_compra):
             return jsonify({"error": str(e)})
     else:
         return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# APIs para detalle de compra
+# Mostrar todos los detalles de compra
+@api.route("/api/detalle_compra", methods=["GET"])
+def get_all_detalle_compra():
+    if is_db_connected():
+        try:
+            query = "SELECT * FROM detalle_compra"
+            result = fetch_all(query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# Mostrar un detalle de compra por su id
+@api.route("/api/detalle_compra/<int:id_detalle>", methods=["GET"])
+def get_detalle_compra(id_detalle):
+    if is_db_connected():
+        try:
+            query = f"SELECT * FROM detalle_compra WHERE id = {id_detalle}"
+            result = fetch_all(query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# Insertar un nuevo detalle de compra
+@api.route("/api/detalle_compra", methods=["POST"])
+def insert_detalle_compra():
+    if is_db_connected():
+        try:
+            data = request.get_json()
+            product_id = data["product_id"]
+            qty = data["qty"]
+            subtotal = data["subtotal"]
+            purchase_id = data["purchase_id"]
+
+            query = f"INSERT INTO detalle_compra (product_id, qty, subtotal, purchase_id) VALUES ({product_id}, {qty}, {subtotal}, {purchase_id})"
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+
+            cursor.close()
+            connection.close()
+
+            return jsonify({"message": "Detalle de compra insertado exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# Actualizar un detalle de compra por su id
+@api.route("/api/detalle_compra/<int:id_detalle>", methods=["PUT"])
+def update_detalle_compra(id_detalle):
+    if is_db_connected():
+        try:
+            data = request.get_json()
+            product_id = data["product_id"]
+            qty = data["qty"]
+            subtotal = data["subtotal"]
+            purchase_id = data["purchase_id"]
+
+            query = f"UPDATE detalle_compra SET product_id={product_id}, qty={qty}, subtotal={subtotal}, purchase_id={purchase_id} WHERE id={id_detalle}"
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+
+            cursor.close()
+            connection.close()
+
+            return jsonify({"message": "Detalle de compra actualizado exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# Eliminar un detalle de compra por su id
+@api.route("/api/detalle_compra/<int:id_detalle>", methods=["DELETE"])
+def delete_detalle_compra(id_detalle):
+    if is_db_connected():
+        try:
+            query = f"DELETE FROM detalle_compra WHERE id = {id_detalle}"
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+
+            cursor.close()
+            connection.close()
+
+            return jsonify({"message": "Detalle de compra eliminado exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
