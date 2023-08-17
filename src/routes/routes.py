@@ -9,8 +9,6 @@ api = Blueprint("api", __name__)
 
 # APIs para Productos
 # Insertar Productos
-
-
 @api.route("/api/productos", methods=["POST"])
 def insert_producto():
     if is_db_connected():
@@ -260,25 +258,10 @@ def get_imagen(image_id):
     if is_db_connected():
         try:
             query = f"SELECT * FROM imagenes WHERE image_id = {image_id}"
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(query)
-            imagen = cursor.fetchone()
+            result = fetch_all(query)
 
-            cursor.close()
-            connection.close()
-
-            if imagen:
-                return jsonify(
-                    {
-                        "image_id": imagen[0],
-                        "product_id": imagen[1],
-                        "id": imagen[2],
-                        "alt": imagen[3],
-                        "src": imagen[4],
-                        "color": imagen[5],
-                    }
-                )
+            if result:
+                return jsonify(result[0])
             else:
                 return jsonify({"error": "Imagen no encontrada"})
         except Exception as e:
@@ -341,28 +324,8 @@ def get_all_imagenes():
     if is_db_connected():
         try:
             query = "SELECT * FROM imagenes"
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(query)
-            imagenes = cursor.fetchall()
-
-            cursor.close()
-            connection.close()
-
-            imagen_list = []
-            for imagen in imagenes:
-                imagen_list.append(
-                    {
-                        "image_id": imagen[0],
-                        "product_id": imagen[1],
-                        "id": imagen[2],
-                        "alt": imagen[3],
-                        "src": imagen[4],
-                        "color": imagen[5],
-                    }
-                )
-
-            return jsonify(imagen_list)
+            result = fetch_all(query)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)})
     else:
@@ -405,29 +368,22 @@ def get_all_variantes():
     if is_db_connected():
         try:
             query = "SELECT * FROM variantes"
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(query)
-            variantes = cursor.fetchall()
+            result = fetch_all(query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
 
-            cursor.close()
-            connection.close()
 
-            variante_list = []
-            for variante in variantes:
-                variante_list.append(
-                    {
-                        "variante_id": variante[0],
-                        "product_id": variante[1],
-                        "id": variante[2],
-                        "sku": variante[3],
-                        "size": variante[4],
-                        "color": variante[5],
-                        "image_id": variante[6],
-                    }
-                )
-
-            return jsonify(variante_list)
+# Ruta para obtener una variante por su variante_id
+@api.route("/api/variantes/<int:variante_id>", methods=["GET"])
+def get_variante(variante_id):
+    if is_db_connected():
+        try:
+            query = f"SELECT * FROM variantes WHERE variante_id = {variante_id}"
+            result = fetch_all(query)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)})
     else:
@@ -464,40 +420,6 @@ def delete_variante(variante_id):
         return jsonify({"error": "No se pudo conectar a la base de datos"})
 
 
-# Ruta para obtener una variante por su variante_id
-@api.route("/api/variantes/<int:variante_id>", methods=["GET"])
-def get_variante(variante_id):
-    if is_db_connected():
-        try:
-            query = f"SELECT * FROM variantes WHERE variante_id = {variante_id}"
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(query)
-            variante = cursor.fetchone()
-
-            cursor.close()
-            connection.close()
-
-            if variante:
-                return jsonify(
-                    {
-                        "variante_id": variante[0],
-                        "product_id": variante[1],
-                        "id": variante[2],
-                        "sku": variante[3],
-                        "size": variante[4],
-                        "color": variante[5],
-                        "image_id": variante[6],
-                    }
-                )
-            else:
-                return jsonify({"error": "Variante no encontrada"})
-        except Exception as e:
-            return jsonify({"error": str(e)})
-    else:
-        return jsonify({"error": "No se pudo conectar a la base de datos"})
-
-
 # Ruta para actualizar una variante por su variante_id
 @api.route("/api/variantes/<int:variante_id>", methods=["PUT"])
 def update_variante(variante_id):
@@ -521,6 +443,111 @@ def update_variante(variante_id):
             connection.close()
 
             return jsonify({"message": "Variante actualizada exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# APIs para las compras
+
+
+@api.route("/api/compras", methods=["POST"])
+def insert_compra():
+    if is_db_connected():
+        try:
+            data = request.get_json()
+            name = data["name"]
+            phone = data["phone"]
+            email = data["email"]
+            address = data["address"]
+            total = data["total"]
+            payment_type = data["payment_type"]
+            customer_id = data["customer_id"]
+
+            query = f"INSERT INTO compras (name, phone, email, address, total, payment_type, customer_id) VALUES ('{name}', '{phone}', '{email}', '{address}', {total}, '{payment_type}', {customer_id})"
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            return jsonify({"message": "Compra insertada exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+@api.route("/api/compras", methods=["GET"])
+def get_compras():
+    if is_db_connected():
+        try:
+            query = "SELECT * FROM compras"
+            result = fetch_all(query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+@api.route("/api/compras/<int:id_compra>", methods=["GET"])
+def get_compra(id_compra):
+    if is_db_connected():
+        try:
+            query = f"SELECT * FROM compras WHERE id = {id_compra}"
+            result = fetch_all(query)
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+@api.route("/api/compras/<int:id_compra>", methods=["DELETE"])
+def delete_compra(id_compra):
+    if is_db_connected():
+        try:
+            query = f"DELETE FROM compras WHERE id = {id_compra}"
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+            cursor.close()
+            connection.close()
+            return jsonify({"message": "Compra eliminada exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+@api.route("/api/compras/<int:id_compra>", methods=["PUT"])
+def update_compra(id_compra):
+    if is_db_connected():
+        try:
+            data = request.get_json()
+            name = data["name"]
+            phone = data["phone"]
+            email = data["email"]
+            address = data["address"]
+            total = data["total"]
+            payment_type = data["payment_type"]
+            customer_id = data["customer_id"]
+
+            query = f"UPDATE compras SET name='{name}', phone='{phone}', email='{email}', address='{address}', total={total}, payment_type='{payment_type}', customer_id={customer_id} WHERE id={id_compra}"
+
+            connection = get_db_connection()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            connection.commit()
+
+            cursor.close()
+            connection.close()
+
+            return jsonify({"message": "Compra actualizada exitosamente"})
         except Exception as e:
             return jsonify({"error": str(e)})
     else:
