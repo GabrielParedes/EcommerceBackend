@@ -1,44 +1,142 @@
-from flask import jsonify, Blueprint, request
-
+from flask import jsonify, Blueprint, request, current_app
 from src.database.db_mysql import fetch_all, is_db_connected, get_db_connection
+from werkzeug.utils import secure_filename
+import os
+from uuid import uuid4
+
 
 # Asegúrate de usar la ruta correcta
 
 api = Blueprint("api", __name__)
 
 
-# APIs para Productos
-# Insertar Productos
-@api.route("/api/productos", methods=["POST"])
-def insert_producto():
-    if is_db_connected():
-        try:
-            data = request.get_json()
-            title = data["title"]
-            description = data["description"]
-            type = data["type"]
-            brand = data["brand"]
-            category = data["category"]
-            price = data["price"]
-            sale = data.get("sale", 0)  # Valor por defecto si no se proporciona
-            discount = data.get("discount", "")
-            stock = data["stock"]
-            new = data.get("new", 0)  # Valor por defecto si no se proporciona
+# Función para crear el Blueprint de las rutas
+def create_api_blueprint(app):
+    # Crea el Blueprint de las rutas
+    api = Blueprint("api", __name__)
 
-            query = f"INSERT INTO productos (title, description, type, brand, category, price, sale, discount, stock, new) VALUES ('{title}', '{description}', '{type}', '{brand}', '{category}', {price}, {sale}, '{discount}', {stock}, {new})"
-            connection = get_db_connection()
-            cursor = connection.cursor()
-            cursor.execute(query)
-            connection.commit()  # Confirmar la transacción
+    # Almacenar Imagenes
+    @api.route("/api/upload", methods=["POST"])
+    def upload_file():
+        if "image" not in request.files:
+            return jsonify({"error": "No se ha enviado ningún archivo"})
 
-            cursor.close()
-            connection.close()
+        file = request.files["image"]
 
-            return jsonify({"message": "Producto insertado exitosamente"})
-        except Exception as e:
-            return jsonify({"error": str(e)})
-    else:
-        return jsonify({"error": "No se pudo conectar a la base de datos"})
+        if file.filename == "":
+            return jsonify({"error": "No se ha seleccionado un archivo"})
+
+        if file:
+            # Genera un valor aleatorio único usando uuid4
+            random_value = str(uuid4().hex)
+            original_filename = secure_filename(file.filename)
+            filename = f"{random_value}_{original_filename}"
+            print(filename)
+            upload_folder = current_app.config[
+                "UPLOAD_FOLDER"
+            ]  # Obtiene la configuración desde current_app
+            file.save(os.path.join(upload_folder, filename))
+            image_url = f"/{upload_folder}/{filename}"  # URL de la imagen
+
+            return jsonify({"image": image_url})
+
+    @api.route("/api/categorias", methods=["POST"])
+    def insert_categoria():
+        if is_db_connected():
+            try:
+                data = request.get_json()
+                print(data)
+                category = data["name"]
+                photo_url = data["image"]
+                print(category)
+                print(photo_url)
+
+                # Inserta la nueva categoría en la base de datos junto con la URL de la imagen
+                query = f"INSERT INTO categorias (name, image) VALUES ('{category}', '{photo_url}')"
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(query)
+                connection.commit()
+
+                cursor.close()
+                connection.close()
+
+                return jsonify({"message": "Categoría insertada exitosamente"})
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # API para mostrar todas las categorías
+    @api.route("/api/categorias", methods=["GET"])
+    def get_all_categorias():
+        if is_db_connected():
+            try:
+                query = "SELECT * FROM categorias"
+                result = fetch_all(query)
+                print(result)
+                return jsonify(result)
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # API para mostrar todas las categorías
+    @api.route("/api/categorias/productos", methods=["GET"])
+    def get_all_categoriasprod():
+        if is_db_connected():
+            try:
+                query = """
+                SELECT categorias.id AS categoria_id, categorias.name AS categoria_name, 
+                       productos.id AS producto_id, productos.title AS producto_title,
+                       productos.price AS producto_price, categorias.image AS categoria_image
+                FROM categorias
+                RIGHT JOIN productos ON categorias.id = productos.category_id;
+            """
+                result = fetch_all(query)
+                print(result)
+                return jsonify(result)
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # APIs para Productos
+
+    # Insertar Productos
+    @api.route("/api/productos", methods=["POST"])
+    def insert_producto():
+        if is_db_connected():
+            try:
+                data = request.get_json()
+                print(data)
+                title = data["title"]
+                description = data["description"]
+                type = data["type"]
+                brand = data["brand"]
+                category = data["category_id"]
+                price = data["price"]
+                sale = data.get("sale", 0)  # Valor por defecto si no se proporciona
+                discount = data.get("discount", 0)
+                stock = data["stock"]
+                new = data.get("new", 0)  # Valor por defecto si no se proporciona
+
+                query = f"INSERT INTO productos (title, description, type, brand, category_id, price, sale, discount, stock, new) VALUES ('{title}', '{description}', '{type}', '{brand}', '{category}', {price}, {sale}, '{discount}', {stock}, {new})"
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(query)
+                connection.commit()  # Confirmar la transacción
+
+                cursor.close()
+                connection.close()
+
+                return jsonify({"message": "Producto insertado exitosamente"})
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    return api
 
 
 # Mostrar todos los productos
@@ -652,6 +750,20 @@ def delete_detalle_compra(id_detalle):
             connection.close()
 
             return jsonify({"message": "Detalle de compra eliminado exitosamente"})
+        except Exception as e:
+            return jsonify({"error": str(e)})
+    else:
+        return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+
+# API para mostrar una categoría por su ID
+@api.route("/api/categorias/<int:id_categoria>", methods=["GET"])
+def get_categoria(id_categoria):
+    if is_db_connected():
+        try:
+            query = f"SELECT * FROM categorias WHERE id = {id_categoria}"
+            result = fetch_all(query)
+            return jsonify(result)
         except Exception as e:
             return jsonify({"error": str(e)})
     else:
