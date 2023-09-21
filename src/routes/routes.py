@@ -1,4 +1,4 @@
-from flask import jsonify, Blueprint, request, current_app
+from flask import jsonify, Blueprint, request, current_app, send_from_directory
 from src.database.db_mysql import fetch_all, is_db_connected, get_db_connection
 from werkzeug.utils import secure_filename
 import os
@@ -36,9 +36,10 @@ def create_api_blueprint(app):
                 "UPLOAD_FOLDER"
             ]  # Obtiene la configuración desde current_app
             file.save(os.path.join(upload_folder, filename))
-            image_url = f"/{upload_folder}/{filename}"  # URL de la imagen
+            image_uri = f"/{upload_folder}/{filename}"  # URL de la imagen
+            image_url = f"/public/{filename}"
 
-            return jsonify({"image": image_url})
+            return jsonify({"path": image_uri, "url": image_url})
 
     @api.route("/api/categorias", methods=["POST"])
     def insert_categoria():
@@ -74,14 +75,60 @@ def create_api_blueprint(app):
             try:
                 query = "SELECT * FROM categorias"
                 result = fetch_all(query)
-                # print(result)
+                print(result)
                 return jsonify(result)
             except Exception as e:
                 return jsonify({"error": str(e)})
         else:
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
-    # API para mostrar todas las categorías
+    # API para borrar categoria por id
+    @api.route("/api/categorias/<int:id>", methods=["DELETE"])
+    def delete_categoria(id):
+        if is_db_connected():
+            try:
+                query = f"DELETE FROM categorias WHERE id = {id}"
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(query)
+                connection.commit()
+
+                cursor.close()
+                connection.close()
+
+                return jsonify(
+                    {"message": f"Categoria con ID {id} eliminado exitosamente"}
+                )
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # Ruta para actualizar una categoria por ID
+    @api.route("/api/categorias/<int:id>", methods=["PUT"])
+    def update_categoria(id):
+        if is_db_connected():
+            try:
+                data = request.get_json()
+                name = data["name"]
+                image = data["image"]
+
+                query = f"UPDATE categorias SET name = '{name}', image = '{image}' WHERE id = {id}"
+                connection = get_db_connection()
+                cursor = connection.cursor()
+                cursor.execute(query)
+                connection.commit()
+
+                cursor.close()
+                connection.close()
+
+                return jsonify({"message": "Categoria actualizado exitosamente"})
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # API para mostrar todas las categorías por producto
     @api.route("/api/categorias/productos", methods=["GET"])
     def get_all_categoriasprod():
         if is_db_connected():
@@ -100,6 +147,8 @@ def create_api_blueprint(app):
                 return jsonify({"error": str(e)})
         else:
             return jsonify({"error": "No se pudo conectar a la base de datos"})
+        
+
 
     # APIs para Productos
 
@@ -127,10 +176,12 @@ def create_api_blueprint(app):
                 cursor.execute(query)
                 connection.commit()  # Confirmar la transacción
 
+                id_inserted = cursor.lastrowid
+
                 cursor.close()
                 connection.close()
 
-                return jsonify({"message": "Producto insertado exitosamente"})
+                return jsonify({"message": "Producto insertado exitosamente", "id": id_inserted})
             except Exception as e:
                 return jsonify({"error": str(e)})
         else:
@@ -167,14 +218,14 @@ def create_api_blueprint(app):
                 description = data["description"]
                 type = data["type"]
                 brand = data["brand"]
-                category = data["category"]
+                category_id = data["category_id"]
                 price = data["price"]
                 sale = data.get("sale", 0)  # Valor por defecto si no se proporciona
                 discount = data.get("discount", "")
                 stock = data["stock"]
                 new = data.get("new", 0)  # Valor por defecto si no se proporciona
 
-                query = f"UPDATE productos SET title = '{title}', description = '{description}', type = '{type}', brand = '{brand}', category = '{category}', price = {price}, sale = {sale}, discount = '{discount}', stock = {stock}, new = {new} WHERE id = {id}"
+                query = f"UPDATE productos SET title = '{title}', description = '{description}', type = '{type}', brand = '{brand}', category_id = '{category_id}', price = {price}, sale = {sale}, discount = '{discount}', stock = {stock}, new = {new} WHERE id = {id}"
                 connection = get_db_connection()
                 cursor = connection.cursor()
                 cursor.execute(query)
@@ -331,21 +382,23 @@ def create_api_blueprint(app):
                 cursor.execute(query)
                 connection.commit()
 
+                id_inserted = cursor.lastrowid
+
                 cursor.close()
                 connection.close()
 
-                return jsonify({"message": "Imagen insertada exitosamente"})
+                return jsonify({"message": "Imagen insertada exitosamente", "id": id_inserted})
             except Exception as e:
                 return jsonify({"error": str(e)})
         else:
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
     # Ruta para obtener una imagen por su ID
-    @api.route("/api/imagenes/<int:image_id>", methods=["GET"])
-    def get_imagen(image_id):
+    @api.route("/api/imagenes/<int:product_id>", methods=["GET"])
+    def get_imagen(product_id):
         if is_db_connected():
             try:
-                query = f"SELECT * FROM imagenes WHERE image_id = {image_id}"
+                query = f"SELECT * FROM imagenes WHERE product_id = {product_id}"
                 result = fetch_all(query)
 
                 if result:
@@ -384,11 +437,11 @@ def create_api_blueprint(app):
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
     # Ruta para eliminar una imagen por su ID
-    @api.route("/api/imagenes/<int:image_id>", methods=["DELETE"])
-    def delete_imagen(image_id):
+    @api.route("/api/imagenes/<int:product_id>", methods=["DELETE"])
+    def delete_imagen(product_id):
         if is_db_connected():
             try:
-                query = f"DELETE FROM imagenes WHERE image_id = {image_id}"
+                query = f"DELETE FROM imagenes WHERE product_id = {product_id}"
                 connection = get_db_connection()
                 cursor = connection.cursor()
                 cursor.execute(query)
@@ -459,11 +512,11 @@ def create_api_blueprint(app):
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
     # Ruta para obtener una variante por su variante_id
-    @api.route("/api/variantes/<int:variante_id>", methods=["GET"])
-    def get_variante(variante_id):
+    @api.route("/api/variantes/<int:product_id>", methods=["GET"])
+    def get_variante(product_id):
         if is_db_connected():
             try:
-                query = f"SELECT * FROM variantes WHERE variante_id = {variante_id}"
+                query = f"SELECT * FROM variantes WHERE product_id = {product_id}"
                 result = fetch_all(query)
                 return jsonify(result)
             except Exception as e:
@@ -472,8 +525,8 @@ def create_api_blueprint(app):
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
     # Ruta para eliminar una variante por su variante_id
-    @api.route("/api/variantes/<int:variante_id>", methods=["DELETE"])
-    def delete_variante(variante_id):
+    @api.route("/api/variantes/<int:product_id>", methods=["DELETE"])
+    def delete_variante(product_id):
         if is_db_connected():
             try:
                 connection = get_db_connection()
@@ -481,7 +534,8 @@ def create_api_blueprint(app):
 
                 # Verifica si la variante existe antes de eliminar
                 check_query = (
-                    f"SELECT * FROM variantes WHERE variante_id = {variante_id}"
+                    # f"SELECT * FROM variantes WHERE variante_id = {variante_id}"
+                    f"SELECT * FROM variantes WHERE product_id = {product_id}"
                 )
                 cursor.execute(check_query)
                 exist = cursor.fetchone()
@@ -490,7 +544,8 @@ def create_api_blueprint(app):
                     return jsonify({"error": "Variante no encontrada"})
 
                 delete_query = (
-                    f"DELETE FROM variantes WHERE variante_id = {variante_id}"
+                    # f"DELETE FROM variantes WHERE variante_id = {variante_id}"
+                    f"DELETE FROM variantes WHERE product_id = {product_id}"
                 )
                 cursor.execute(delete_query)
                 connection.commit()
@@ -505,19 +560,19 @@ def create_api_blueprint(app):
             return jsonify({"error": "No se pudo conectar a la base de datos"})
 
     # Ruta para actualizar una variante por su variante_id
-    @api.route("/api/variantes/<int:variante_id>", methods=["PUT"])
-    def update_variante(variante_id):
+    @api.route("/api/variantes/<int:product_id>", methods=["PUT"])
+    def update_variante(product_id):
         if is_db_connected():
             try:
                 data = request.get_json()
-                product_id = data["product_id"]
+                # product_id = data["product_id"]
                 id = data["id"]
                 sku = data["sku"]
                 size = data["size"]
                 color = data["color"]
                 image_id = data["image_id"]
 
-                query = f"UPDATE variantes SET product_id = {product_id}, id = '{id}', sku = '{sku}', size = '{size}', color = '{color}', image_id = {image_id} WHERE variante_id = {variante_id}"
+                query = f"UPDATE variantes SET sku = '{sku}', size = '{size}', color = '{color}', image_id = {image_id} WHERE product_id = {product_id} AND id = '{id}"
                 connection = get_db_connection()
                 cursor = connection.cursor()
                 cursor.execute(query)
@@ -744,5 +799,9 @@ def create_api_blueprint(app):
                 return jsonify({"error": str(e)})
         else:
             return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    @api.route("/public/<filename>", methods=["GET"])
+    def get_uploaded_file(filename):
+        return send_from_directory('src/uploads', filename)
 
     return api

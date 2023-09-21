@@ -4,10 +4,10 @@ import os
 
 def get_db_connection():
     connection = MySQLdb.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        db=os.getenv("DB_NAME"),
+        host=os.getenv("DB_HOST", "localhost"),
+        user=os.getenv("DB_USER", "root"),
+        password=os.getenv("DB_PASSWORD", ""),
+        db=os.getenv("DB_NAME", "ecommerce"),
     )
     return connection
 
