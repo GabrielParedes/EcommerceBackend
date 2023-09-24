@@ -191,7 +191,7 @@ def create_api_blueprint(app):
     @api.route("/api/productos", methods=["GET"])
     def get_productos():
         try:
-            query = "SELECT p.*, CONCAT('http://localhost:5000', i.src) AS src FROM productos p INNER JOIN imagenes i ON p.id = i.product_id"
+            query = "SELECT p.*, CONCAT('http://localhost:5000', i.src) AS src, v.sku, v.size FROM productos p INNER JOIN imagenes i ON p.id = i.product_id INNER JOIN variantes v ON p.id = v.product_id"
             result = fetch_all(query)
             print(result)
             return jsonify(result)
@@ -296,6 +296,26 @@ def create_api_blueprint(app):
                 result = fetch_all(query)
 
                 return jsonify(result)
+            except Exception as e:
+                return jsonify({"error": str(e)})
+        else:
+            return jsonify({"error": "No se pudo conectar a la base de datos"})
+
+    # Ruta para obtener un cliente por username
+    @api.route("/api/clientes/username", methods=["GET"])
+    def get_cliente_by_email():
+        if is_db_connected():
+            try:
+                data = request.get_json()
+                username = data["username"]
+
+                query = f"SELECT * FROM clientes WHERE username = {username}"
+                result = fetch_all(query)
+
+                if result:
+                    return jsonify(result[0])
+                else:
+                    return jsonify({"message": "Cliente no encontrado"})
             except Exception as e:
                 return jsonify({"error": str(e)})
         else:
