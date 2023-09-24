@@ -191,7 +191,7 @@ def create_api_blueprint(app):
     @api.route("/api/productos", methods=["GET"])
     def get_productos():
         try:
-            query = "SELECT * FROM productos"
+            query = "SELECT * FROM productos p INNER JOIN imagenes i ON p.id = i.product_id"
             result = fetch_all(query)
             print(result)
             return jsonify(result)
